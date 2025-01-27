@@ -6,6 +6,7 @@ variable "master_username" {
 variable "master_password" {
   description = "The master password for the Redshift cluster"
   type        = string
+  sensitive   = false
 }
 
 variable "aws_region" {
@@ -14,7 +15,7 @@ variable "aws_region" {
 }
 
 variable "s3_bucket_name" {
-  description = "The name of the S3 bucket"
+  description = "Amazon S3 bucket"
   type        = string
 }
 
