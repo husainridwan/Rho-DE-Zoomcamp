@@ -1,5 +1,6 @@
 /aws
 
+/week1/docker_sql/.env
 # Ignore PostgreSQL database data directory
 /week1/docker_sql/ny_taxi_postgres_data/
 

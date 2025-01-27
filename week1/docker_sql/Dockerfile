@@ -3,7 +3,7 @@ FROM python:3.12.8
 # Install any needed packages
 RUN apt-get install wget
 
-RUN pip install pandas sqlalchemy psycopg2-binary
+RUN pip install pandas sqlalchemy psycopg2-binary requests
 
 # Set the working directory in the container
 WORKDIR /app

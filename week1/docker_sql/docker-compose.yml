@@ -1,10 +1,8 @@
 services:
   pg-db:
     image: postgres:13
-    environment:
-      - POSTGRES_USER=root
-      - POSTGRES_PASSWORD=root
-      - POSTGRES_DB=ny_taxi
+    env_file:
+      - .env
     volumes:
       - "./ny_taxi_postgres_data:/var/lib/postgresql/data:rw"
     ports:
@@ -12,9 +10,25 @@ services:
 
   pg-admin:
     image: dpage/pgadmin4
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
-      - PGADMIN_DEFAULT_PASSWORD=root
+    env_file:
+      - .env
     ports:
       - "8080:80"
-    
+
+  ingest-data:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - pg-db
+    command: >
+      python ingestData.py
+      --user ${POSTGRES_USER}
+      --password ${POSTGRES_PASSWORD}
+      --host pg-db
+      --port 5432
+      --db ${POSTGRES_DB}
+      --tableName green_taxi_data
+      --url https://github.com/DataTalksClub/nyc-tlc-data/releases/download/green/green_tripdata_2019-10.csv.gz

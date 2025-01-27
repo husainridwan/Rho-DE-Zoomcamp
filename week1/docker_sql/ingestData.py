@@ -5,7 +5,27 @@ import pandas as pd
 import argparse
 from time import time
 from sqlalchemy import create_engine
+import requests
+import gzip
+import shutil
+import logging
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def download_and_decompress(url, output_path):
+    """Download and decompress a gzipped CSV file."""
+    try:
+        logging.info(f"Downloading data from {url}")
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        with open(output_path, 'wb') as f_out:
+            with gzip.GzipFile(fileobj=response.raw) as f_in:
+                shutil.copyfileobj(f_in, f_out)
+        logging.info(f"Downloaded and decompressed file to {output_path}")
+    except Exception as e:
+        logging.error(f"Error downloading or decompressing file: {e}")
+        raise
 
 def main(params):
     user = params.user
@@ -18,16 +38,11 @@ def main(params):
 
     csv_name = 'output.csv'
 
-    # Download the data
-    os.system(f"wget {url} -O {csv_name}.gz")
-    # Unzip the file
-    os.system(f"gunzip -c {csv_name}.gz > {csv_name}")
+    # Download and decompress the data
+    download_and_decompress(url, csv_name)
 
     # Create a connection to Postgres using SQLAlchemy
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{db}')
-
-    # Convert the DataFrame to a DDL format
-    # print(pd.io.sql.get_schema(data, name='green_taxi_data', con=engine))
 
     # Specify data types for the columns
     dtype = {
@@ -74,20 +89,20 @@ def main(params):
             df.to_sql(name=tableName, con=engine, if_exists='append')
             end = time()
 
-            print("Another chunk added!. Total time: %.3f" % (end-start))
+            logging.info(f"Another chunk added! Total time: {end-start:.3f} seconds")
         except StopIteration:
-            print("Data ingestion completed!")
+            logging.info("Data ingestion completed!")
             break
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Ingest data into Postgres')
-    parser.add_argument('--user', help='postgres user')
-    parser.add_argument('--password', help='postgres password')
-    parser.add_argument('--host', help='postgres host')
-    parser.add_argument('--port', help='postgres port')
-    parser.add_argument('--db', help='postgres db')
-    parser.add_argument('--tableName', help='output table name')
-    parser.add_argument('--url', help='csv url')
+    parser.add_argument('--user', help='postgres user', required=True)
+    parser.add_argument('--password', help='postgres password', required=True)
+    parser.add_argument('--host', help='postgres host', required=True)
+    parser.add_argument('--port', help='postgres port', required=True)
+    parser.add_argument('--db', help='postgres db', required=True)
+    parser.add_argument('--tableName', help='output table name', required=True)
+    parser.add_argument('--url', help='csv url', required=True)
 
     args = parser.parse_args()
     main(args)
