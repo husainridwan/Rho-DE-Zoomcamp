@@ -9,38 +9,36 @@ This repository contains the work done for my Data Engineering Zoomcamp.
 - [Database Management with pgAdmin](#database-management-with-pgadmin)
 - [Scripts](#scripts)
 - [Docker Compose](#docker-compose)
-- [AWS Setup with Terraform](#Terraform)
+- [AWS Setup with Terraform](#aws-setup-with-terraform)
 
 ## Setup
 
 ### PostgreSQL Database
 
-To set up the PostgreSQL database, check the #setup.yml file:
+To set up the PostgreSQL database, check the #docker-compose.yml file:
 
 ### pgAdmin
 
-To set up pgAdmin for database management, check the #setup.yml file:
+To set up pgAdmin for database management, check the #docker-compose.yml file:
 
 ### Ingesting Data
 
-To ingest data into the PostgreSQL database, check the #setup.yml file:
+To ingest data into the PostgreSQL database, check the #docker-compose.yml file:
 
 ### Database Management with pgAdmin
 
-Access pgAdmin by navigating to http://localhost:8080 in your web browser. Use the following credentials to log in:
-Email: admin@admin.com
-Password: root
+Access pgAdmin by navigating to http://localhost:8080 in your web browser. The setup is defined in the Docker Compose file.
 
 ### Scripts
 
 - ingestData.py
-This script downloads a CSV file, unzips it, and ingests the data into the PostgreSQL database in chunks.
+This script downloads the NY taxi data, unzips it, and ingests the data into the PostgreSQL database in chunks.
 
 - uploadata.ipynb
 This Jupyter Notebook contains code for data analysis and manipulation using pandas and numpy.
 
 - Docker Compose
-You can use Docker Compose to manage the services. Check the docker-compose.yml file:
+This was used to manage the services (Ingesting data, pgAdmin, Postgresql). Check the docker-compose.yml file:
 
 ### AWS Setup with Terraform
 
@@ -52,6 +50,7 @@ You can use Docker Compose to manage the services. Check the docker-compose.yml 
 - Initialize Terraform: terraform init
 - Apply the Configuration: terraform apply
   - Review the plan and confirm the apply by typing yes.
+- Destroy resources: terraform destroy
 
 #### Terraform Resources
 The Terraform configuration includes the following resources:
@@ -60,10 +59,10 @@ The Terraform configuration includes the following resources:
 - Redshift Cluster: Creates a Redshift cluster within the database.
 
 - Example main.tf Configuration
-You can find the example main.tf configuration here.
+The configuration for the resources used are defined here.
 
 - Variables Definition
-Define the necessary variables in variables.tf:
+Defined the necessary variables in variables.tf:
 
 - Providing Variable Values
-Provide the values for the variables using a terraform.tfvars file or environment variables.
+Defined the values for the variables using a terraform.tfvars file or environment variables.
