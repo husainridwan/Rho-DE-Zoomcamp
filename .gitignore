@@ -4,3 +4,5 @@
 # Ignore PostgreSQL database data directory
 /week1/docker_sql/ny_taxi_postgres_data/
 
+/week2/ny_taxi_postgres_data/
+/week2/data_pgadmin/

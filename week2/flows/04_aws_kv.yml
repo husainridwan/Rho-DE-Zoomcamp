@@ -1,0 +1,64 @@
+id: 04_aws_kv
+namespace: zoomcamp
+
+tasks:
+  - id: aws_region
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_REGION
+    kvType: STRING
+    value: us-east-1
+
+  - id: aws_bucket_name
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_BUCKET_NAME
+    kvType: STRING
+    value: your-bucket-name # Replace with your S3 bucket name
+
+  - id: aws_dataset
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_DATASET
+    kvType: STRING
+    value: rho_ny_taxi
+
+  - id: aws_redshift_cluster_id
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_REDSHIFT_CLUSTER_ID
+    kvType: STRING
+    value: your-cluster-id # Replace with your Redshift cluster ID
+
+  - id: aws_redshift_database
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_REDSHIFT_DATABASE
+    kvType: STRING
+    value: rho_ny_taxi
+
+  - id: aws_redshift_user
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_REDSHIFT_USER
+    kvType: STRING
+    value: your-username # Replace with your Redshift username
+
+  - id: aws_redshift_password
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_REDSHIFT_PASSWORD
+    kvType: STRING
+    value: "{{ secret('AWS_REDSHIFT_PASSWORD') }}" # Use Kestra secret for password
+
+  - id: aws_access_key_id
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_ACCESS_KEY_ID
+    kvType: STRING
+    value: "{{ secret('AWS_ACCESS_KEY_ID') }}" # Use Kestra secret for access key
+
+  - id: aws_secret_access_key
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_SECRET_ACCESS_KEY
+    kvType: STRING
+    value: "{{ secret('AWS_SECRET_ACCESS_KEY') }}" # Use Kestra secret for secret key
+
+  - id: aws_iam_role
+    type: io.kestra.plugin.core.kv.Set
+    key: AWS_IAM_ROLE
+    kvType: STRING
+    value: arn:aws:iam::123456789012:role/terra
+
