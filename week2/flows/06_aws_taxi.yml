@@ -1,0 +1,242 @@
+id: 06_aws_taxi
+namespace: zoomcamp
+description: |
+  The CSV Data used in the course: https://github.com/DataTalksClub/nyc-tlc-data/releases
+
+inputs:
+  - id: taxi
+    type: SELECT
+    displayName: Select taxi type
+    values: [yellow, green]
+    defaults: green
+
+  - id: year
+    type: SELECT
+    displayName: Select year
+    values: ["2019", "2020"]
+    defaults: "2019"
+    allowCustomValue: true # allows you to type 2021 from the UI for the homework 🤗
+
+  - id: month
+    type: SELECT
+    displayName: Select month
+    values: ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+    defaults: "01"
+
+variables:
+  file: "{{inputs.taxi}}_tripdata_{{inputs.year}}-{{inputs.month}}.csv"
+  s3_file: "s3://{{kv('AWS_BUCKET_NAME')}}/{{vars.file}}"
+  table: "{{kv('AWS_DATASET')}}.{{inputs.taxi}}_tripdata_{{inputs.year}}_{{inputs.month}}"
+  data: "{{outputs.extract.outputFiles[inputs.taxi ~ '_tripdata_' ~ inputs.year ~ '-' ~ inputs.month ~ '.csv']}}"
+
+tasks:
+  - id: set_label
+    type: io.kestra.plugin.core.execution.Labels
+    labels:
+      file: "{{render(vars.file)}}"
+      taxi: "{{inputs.taxi}}"
+
+  - id: extract
+    type: io.kestra.plugin.scripts.shell.Commands
+    outputFiles:
+      - "*.csv"
+    taskRunner:
+      type: io.kestra.plugin.core.runner.Process
+    commands:
+      - wget -qO- https://github.com/DataTalksClub/nyc-tlc-data/releases/download/{{inputs.taxi}}/{{render(vars.file)}}.gz | gunzip > {{render(vars.file)}}
+
+  - id: upload_to_s3
+    type: io.kestra.plugin.aws.s3.Upload
+    from: "{{render(vars.data)}}"
+    to: "{{render(vars.s3_file)}}"
+
+  - id: if_yellow_taxi
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{inputs.taxi == 'yellow'}}"
+    then:
+      - id: redshift_yellow_tripdata
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          CREATE TABLE IF NOT EXISTS {{kv('AWS_DATASET')}}.yellow_tripdata
+          (
+              unique_row_id VARCHAR(64),
+              filename VARCHAR(255),
+              VendorID VARCHAR(255),
+              tpep_pickup_datetime TIMESTAMP,
+              tpep_dropoff_datetime TIMESTAMP,
+              passenger_count INTEGER,
+              trip_distance NUMERIC,
+              RatecodeID VARCHAR(255),
+              store_and_fwd_flag VARCHAR(255),
+              PULocationID VARCHAR(255),
+              DOLocationID VARCHAR(255),
+              payment_type INTEGER,
+              fare_amount NUMERIC,
+              extra NUMERIC,
+              mta_tax NUMERIC,
+              tip_amount NUMERIC,
+              tolls_amount NUMERIC,
+              improvement_surcharge NUMERIC,
+              total_amount NUMERIC,
+              congestion_surcharge NUMERIC
+          )
+          PARTITION BY (tpep_pickup_datetime);
+
+      - id: redshift_yellow_table_ext
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          CREATE EXTERNAL TABLE {{kv('AWS_DATASET')}}.yellow_tripdata_ext
+          (
+              VendorID VARCHAR(255),
+              tpep_pickup_datetime TIMESTAMP,
+              tpep_dropoff_datetime TIMESTAMP,
+              passenger_count INTEGER,
+              trip_distance NUMERIC,
+              RatecodeID VARCHAR(255),
+              store_and_fwd_flag VARCHAR(255),
+              PULocationID VARCHAR(255),
+              DOLocationID VARCHAR(255),
+              payment_type INTEGER,
+              fare_amount NUMERIC,
+              extra NUMERIC,
+              mta_tax NUMERIC,
+              tip_amount NUMERIC,
+              tolls_amount NUMERIC,
+              improvement_surcharge NUMERIC,
+              total_amount NUMERIC,
+              congestion_surcharge NUMERIC
+          )
+          ROW FORMAT DELIMITED
+          FIELDS TERMINATED BY ','
+          STORED AS TEXTFILE
+          LOCATION '{{render(vars.s3_file)}}';
+
+      - id: redshift_yellow_table_tmp
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          CREATE TABLE {{kv('AWS_DATASET')}}.yellow_tripdata_tmp AS
+          SELECT
+            MD5(CONCAT(
+              COALESCE(CAST(VendorID AS VARCHAR(255)), ""),
+              COALESCE(CAST(tpep_pickup_datetime AS VARCHAR(255)), ""),
+              COALESCE(CAST(tpep_dropoff_datetime AS VARCHAR(255)), ""),
+              COALESCE(CAST(PULocationID AS VARCHAR(255)), ""),
+              COALESCE(CAST(DOLocationID AS VARCHAR(255)), "")
+            )) AS unique_row_id,
+            "{{render(vars.file)}}" AS filename,
+            *
+          FROM {{kv('AWS_DATASET')}}.yellow_tripdata_ext;
+
+      - id: redshift_yellow_merge
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          MERGE INTO {{kv('AWS_DATASET')}}.yellow_tripdata T
+          USING {{kv('AWS_DATASET')}}.yellow_tripdata_tmp S
+          ON T.unique_row_id = S.unique_row_id
+          WHEN NOT MATCHED THEN
+            INSERT (unique_row_id, filename, VendorID, tpep_pickup_datetime, tpep_dropoff_datetime, passenger_count, trip_distance, RatecodeID, store_and_fwd_flag, PULocationID, DOLocationID, payment_type, fare_amount, extra, mta_tax, tip_amount, tolls_amount, improvement_surcharge, total_amount, congestion_surcharge)
+            VALUES (S.unique_row_id, S.filename, S.VendorID, S.tpep_pickup_datetime, S.tpep_dropoff_datetime, S.passenger_count, S.trip_distance, S.RatecodeID, S.store_and_fwd_flag, S.PULocationID, S.DOLocationID, S.payment_type, S.fare_amount, S.extra, S.mta_tax, S.tip_amount, S.tolls_amount, S.improvement_surcharge, S.total_amount, S.congestion_surcharge);
+
+  - id: if_green_taxi
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{inputs.taxi == 'green'}}"
+    then:
+      - id: redshift_green_tripdata
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          CREATE TABLE IF NOT EXISTS {{kv('AWS_DATASET')}}.green_tripdata
+          (
+              unique_row_id VARCHAR(64),
+              filename VARCHAR(255),
+              VendorID VARCHAR(255),
+              lpep_pickup_datetime TIMESTAMP,
+              lpep_dropoff_datetime TIMESTAMP,
+              store_and_fwd_flag VARCHAR(255),
+              RatecodeID VARCHAR(255),
+              PULocationID VARCHAR(255),
+              DOLocationID VARCHAR(255),
+              passenger_count INTEGER,
+              trip_distance NUMERIC,
+              fare_amount NUMERIC,
+              extra NUMERIC,
+              mta_tax NUMERIC,
+              tip_amount NUMERIC,
+              tolls_amount NUMERIC,
+              ehail_fee NUMERIC,
+              improvement_surcharge NUMERIC,
+              total_amount NUMERIC,
+              payment_type INTEGER,
+              trip_type VARCHAR(255),
+              congestion_surcharge NUMERIC
+          )
+          PARTITION BY (lpep_pickup_datetime);
+
+      - id: redshift_green_table_ext
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          CREATE EXTERNAL TABLE {{kv('AWS_DATASET')}}.green_tripdata_ext
+          (
+              VendorID VARCHAR(255),
+              lpep_pickup_datetime TIMESTAMP,
+              lpep_dropoff_datetime TIMESTAMP,
+              store_and_fwd_flag VARCHAR(255),
+              RatecodeID VARCHAR(255),
+              PULocationID VARCHAR(255),
+              DOLocationID VARCHAR(255),
+              passenger_count INTEGER,
+              trip_distance NUMERIC,
+              fare_amount NUMERIC,
+              extra NUMERIC,
+              mta_tax NUMERIC,
+              tip_amount NUMERIC,
+              tolls_amount NUMERIC,
+              ehail_fee NUMERIC,
+              improvement_surcharge NUMERIC,
+              total_amount NUMERIC,
+              payment_type INTEGER,
+              trip_type VARCHAR(255),
+              congestion_surcharge NUMERIC
+          )
+          ROW FORMAT DELIMITED
+          FIELDS TERMINATED BY ','
+          STORED AS TEXTFILE
+          LOCATION '{{render(vars.s3_file)}}';
+
+      - id: redshift_green_table_tmp
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          CREATE TABLE {{kv('AWS_DATASET')}}.green_tripdata_tmp AS
+          SELECT
+            MD5(CONCAT(
+              COALESCE(CAST(VendorID AS VARCHAR(255)), ""),
+              COALESCE(CAST(lpep_pickup_datetime AS VARCHAR(255)), ""),
+              COALESCE(CAST(lpep_dropoff_datetime AS VARCHAR(255)), ""),
+              COALESCE(CAST(PULocationID AS VARCHAR(255)), ""),
+              COALESCE(CAST(DOLocationID AS VARCHAR(255)), "")
+            )) AS unique_row_id,
+            "{{render(vars.file)}}" AS filename,
+            *
+          FROM {{kv('AWS_DATASET')}}.green_tripdata_ext;
+
+      - id: redshift_green_merge
+        type: io.kestra.plugin.aws.redshift.Execute
+        sql: |
+          MERGE INTO {{kv('AWS_DATASET')}}.green_tripdata T
+          USING {{kv('AWS_DATASET')}}.green_tripdata_tmp S
+          ON T.unique_row_id = S.unique_row_id
+          WHEN NOT MATCHED THEN
+            INSERT (unique_row_id, filename, VendorID, lpep_pickup_datetime, lpep_dropoff_datetime, store_and_fwd_flag, RatecodeID, PULocationID, DOLocationID, passenger_count, trip_distance, fare_amount, extra, mta_tax, tip_amount, tolls_amount, ehail_fee, improvement_surcharge, total_amount, payment_type, trip_type, congestion_surcharge)
+            VALUES (S.unique_row_id, S.filename, S.VendorID, S.lpep_pickup_datetime, S.lpep_dropoff_datetime, S.store_and_fwd_flag, S.RatecodeID, S.PULocationID, S.DOLocationID, S.passenger_count, S.trip_distance, S.fare_amount, S.extra, S.mta_tax, S.tip_amount, S.tolls_amount, S.ehail_fee, S.improvement_surcharge, S.total_amount, S.payment_type, S.trip_type, S.congestion_surcharge);
+
+  - id: purge_files
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    description: If you'd like to explore Kestra outputs, disable it.
+    disabled: false
+
+pluginDefaults:
+  - type: io.kestra.plugin.aws
+    values:
+      accessKeyId: "{{env('AWS_ACCESS_KEY_ID')}}" # Use environment variable for access key
+      secretAccessKey: "{{env('AWS_SECRET_ACCESS_KEY')}}" # Use environment variable for secret key
+      region: "{{kv('AWS_REGION')}}"
+      bucket: "{{kv('AWS_BUCKET_NAME')}}"

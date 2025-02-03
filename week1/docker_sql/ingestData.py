@@ -3,7 +3,7 @@
 import os
 import pandas as pd
 import argparse
-from time import time
+from time import time, sleep
 from sqlalchemy import create_engine
 import requests
 import gzip
@@ -27,6 +27,24 @@ def download_and_decompress(url, output_path):
         logging.error(f"Error downloading or decompressing file: {e}")
         raise
 
+def create_db_engine(user, password, host, port, db, retries=5, delay=5):
+    """Create a SQLAlchemy engine with retry mechanism."""
+    for i in range(retries):
+        try:
+            engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{db}')
+            # Try to connect to the database
+            with engine.connect() as conn:
+                logging.info("Successfully connected to the database")
+            return engine
+        except Exception as e:
+            logging.error(f"Error connecting to the database: {e}")
+            if i < retries - 1:
+                logging.info(f"Retrying in {delay} seconds...")
+                sleep(delay)
+            else:
+                logging.error("Max retries reached. Exiting.")
+                raise
+
 def main(params):
     user = params.user
     password = params.password
@@ -41,8 +59,8 @@ def main(params):
     # Download and decompress the data
     download_and_decompress(url, csv_name)
 
-    # Create a connection to Postgres using SQLAlchemy
-    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{db}')
+    # Create a connection to Postgres using SQLAlchemy with retry mechanism
+    engine = create_db_engine(user, password, host, port, db)
 
     # Specify data types for the columns
     dtype = {

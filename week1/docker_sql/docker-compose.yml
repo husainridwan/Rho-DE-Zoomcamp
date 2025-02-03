@@ -1,6 +1,7 @@
+version: '3.8'
 services:
-  pg-db:
-    image: postgres:13
+  pg-zoomcamp:
+    image: postgres:15
     env_file:
       - .env
     volumes:
@@ -22,13 +23,19 @@ services:
     env_file:
       - .env
     depends_on:
-      - pg-db
+      - pg-zoomcamp
     command: >
       python ingestData.py
       --user ${POSTGRES_USER}
       --password ${POSTGRES_PASSWORD}
-      --host pg-db
+      --host pg-zoomcamp
       --port 5432
       --db ${POSTGRES_DB}
       --tableName green_taxi_data
       --url https://github.com/DataTalksClub/nyc-tlc-data/releases/download/green/green_tripdata_2019-10.csv.gz
+
+volumes:
+  vol-pgdata:
+    name: vol-pgdata
+  vol-pgadmin_data:
+    name: vol-pgadmin_data
